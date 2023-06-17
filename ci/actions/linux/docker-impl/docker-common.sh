@@ -39,7 +39,8 @@ docker_build()
 
     if [[ "$GITHUB_WORKFLOW" != "Develop Branch Dockers Deploy" ]]; then
         ghcr_image_name="ghcr.io/${GITHUB_REPOSITORY}/nano${network_tag_suffix}"
-        "$scripts"/build-docker-image.sh docker/node/Dockerfile "$docker_image_name" --build-arg NETWORK="$network" --build-arg CI_BUILD=true --build-arg CI_VERSION_PRE_RELEASE="$ci_version_pre_release" --build-arg CI_TAG="$CI_TAG"
+        "$scripts"/build-docker-image.sh docker/node/Dockerfile "$docker_image_name" --build-arg NETWORK="$network" --build-arg CI_VERSION_PRE_RELEASE="$ci_version_pre_release" --build-arg CI_TAG="$CI_TAG"
+
         for tag in "${tags[@]}"; do
             # Sanitize docker tag
             # https://docs.docker.com/engine/reference/commandline/tag/

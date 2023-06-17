@@ -13,7 +13,7 @@ CMAKE_BACKTRACE=""
 if [[ "$OS" == 'Linux' ]]; then
     CMAKE_BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON"
 
-    if [[ "$COMPILER" == 'clang' ]]; then
+    if [[ ${COMPILER} == 'clang' ]]; then
         CMAKE_BACKTRACE="${CMAKE_BACKTRACE} -DNANO_BACKTRACE_INCLUDE=</tmp/backtrace.h>"
     fi
 fi
@@ -54,6 +54,8 @@ cmake \
 -DNANO_TEST=${NANO_TEST:-OFF} \
 -DNANO_GUI=${NANO_GUI:-OFF} \
 -DCOVERAGE=${COVERAGE:-OFF} \
+-DCI_TAG=${CI_TAG:-OFF} \
+-DCI_VERSION_PRE_RELEASE=${CI_VERSION_PRE_RELEASE:-OFF} \
 ${CMAKE_SANITIZER:-} \
 ${CMAKE_QT_DIR:-} \
 ${CMAKE_BACKTRACE:-} \
