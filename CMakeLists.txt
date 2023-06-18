@@ -51,7 +51,8 @@ endif()
 if(CI_TAG)
   set(TAG_VERSION_STRING "${CI_TAG}")
 else()
-  set(TAG_VERSION_STRING "V${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}")
+  set(TAG_VERSION_STRING
+      "V${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}")
 endif()
 
 if(APPLE)
@@ -656,10 +657,10 @@ add_subdirectory(nano/rpc)
 add_subdirectory(nano/nano_rpc)
 
 add_custom_target(
-    executables
-    COMMAND echo "BATCH BUILDING node + rpc"
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    DEPENDS nano_node nano_rpc)
+  executables
+  COMMAND echo "BATCH BUILDING node + rpc"
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  DEPENDS nano_node nano_rpc)
 
 if(NANO_FUZZER_TEST)
   if(NOT WIN32)
