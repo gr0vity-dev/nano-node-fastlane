@@ -17,49 +17,29 @@ if [[ "${RELEASE:-false}" == "true" ]]; then
 fi
 
 if [[ ${ASAN_INT:-0} -eq 1 ]]; then
-    SANITIZERS="-DNANO_ASAN_INT=ON"
+    SANITIZER="ASAN_INT"
 elif [[ ${ASAN:-0} -eq 1 ]]; then
-    SANITIZERS="-DNANO_ASAN=ON"
+    SANITIZER="ASAN"
 elif [[ ${TSAN:-0} -eq 1 ]]; then
-    SANITIZERS="-DNANO_TSAN=ON"
+    SANITIZER="TSAN"
 elif [[ ${LCOV:-0} -eq 1 ]]; then
-    SANITIZERS="-DCOVERAGE=ON"
+    COVERAGE="ON"
 fi
 
 ulimit -S -n 8192
 
 if [[ "$OS" == 'Linux' ]]; then
     if clang --version && [ ${LCOV:-0} == 0 ]; then
-        BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON \
-        -DNANO_BACKTRACE_INCLUDE=</tmp/backtrace.h>"
-    else
-        BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON"
+        COMPILER="clang"
     fi
-else
-    BACKTRACE=""
 fi
 
-cmake \
--G'Unix Makefiles' \
--DACTIVE_NETWORK=nano_dev_network \
--DNANO_TEST=ON \
--DNANO_GUI=ON \
--DPORTABLE=1 \
--DNANO_WARN_TO_ERR=ON \
--DCMAKE_BUILD_TYPE=${BUILD_TYPE:-Debug} \
--DQt5_DIR=${qt_dir} \
-${BACKTRACE:-} \
-${SANITIZERS:-} \
-..
+NANO_NETWORK="dev"
+NANO_TEST="ON"
+NANO_GUI="ON"
+QT_DIR=${qt_dir}
+export BUILD_TYPE NANO_NETWORK NANO_TEST NANO_GUI COVERAGE QT_DIR COMPILER SANITIZER
 
-if [[ "$OS" == 'Linux' ]]; then
-    if [[ ${LCOV:-0} == 1 ]]; then
-        cmake --build ${PWD} --target generate_coverage -- -j2
-    else
-        cmake --build ${PWD} --target ${build_target} -- -j2
-    fi
-else
-    sudo cmake --build ${PWD} --target ${build_target} -- -j2
-fi
+$(dirname "$BASH_SOURCE")/build.sh ${build_target}
 
 popd
