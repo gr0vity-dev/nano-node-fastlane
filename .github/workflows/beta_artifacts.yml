@@ -1,17 +1,17 @@
 name: Beta
-on:
-  schedule:
-    - cron: "0 0 * * 3,6"
-  workflow_dispatch:
-    inputs:
-      repo:
-        description: "repo"
-        default: "nanocurrency/nano-node"
-        required: true
-      ref:
-        description: "tag to build"
-        default: "develop"
-        required: true
+# on:
+#   schedule:
+#     - cron: "0 0 * * 3,6"
+#   workflow_dispatch:
+#     inputs:
+#       repo:
+#         description: "repo"
+#         default: "nanocurrency/nano-node"
+#         required: true
+#       ref:
+#         description: "tag to build"
+#         default: "develop"
+#         required: true
 env:
   BETA: 1
   artifact: 1

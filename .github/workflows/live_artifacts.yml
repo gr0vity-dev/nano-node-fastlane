@@ -1,15 +1,15 @@
 name: Live
-on:
-  workflow_dispatch:
-    inputs:
-      repo:
-        description: "repo"
-        default: "nanocurrency/nano-node"
-        required: true
-      ref:
-        description: "tag to build"
-        default: "develop"
-        required: true
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       repo:
+#         description: "repo"
+#         default: "nanocurrency/nano-node"
+#         required: true
+#       ref:
+#         description: "tag to build"
+#         default: "develop"
+#         required: true
 env:
   artifact: 1
 

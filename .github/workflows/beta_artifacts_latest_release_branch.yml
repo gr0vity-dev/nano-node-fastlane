@@ -1,7 +1,7 @@
 name: Beta (Latest Release Branch)
-on:
-  schedule:
-    - cron: "0 0 * * 3,6"
+# on:
+#   schedule:
+#     - cron: "0 0 * * 3,6"
 env:
   BETA: 1
   artifact: 1
