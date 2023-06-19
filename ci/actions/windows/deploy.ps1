@@ -20,11 +20,14 @@ else {
 $exe = Resolve-Path -Path $env:GITHUB_WORKSPACE\build\nano-node-*-win64.exe
 $zip = Resolve-Path -Path $env:GITHUB_WORKSPACE\build\nano-node-*-win64.zip
 
-$exe_hash = ((Get-FileHash $exe).hash)+" "+(split-path -Path $exe -Resolve -leaf)
-$zip_hash = ((Get-FileHash $zip).hash)+" "+(split-path -Path $zip -Resolve -leaf)
+$exe_hash = ((Get-FileHash $exe).hash.ToLower())+"  "+(split-path -Path $exe -Resolve -leaf)
+$zip_hash = ((Get-FileHash $zip).hash.ToLower())+"  "+(split-path -Path $zip -Resolve -leaf)
 
-$exe_hash | Out-file -FilePath "$exe.sha256"
-$zip_hash | Out-file -FilePath "$zip.sha256"
+$exe_sha256_file = "$env:GITHUB_WORKSPACE\build\nano-node-$env:TAG-win64.exe.sha256"
+$zip_sha256_file = "$env:GITHUB_WORKSPACE\build\nano-node-$env:TAG-win64.zip.sha256"
+
+$exe_hash | Out-file -FilePath $exe_sha256_file
+$zip_hash | Out-file -FilePath $zip_sha256_file
 
 Write-Output "Hash: $exe_hash"
 Write-Output "Hash: $zip_hash"
