@@ -55,18 +55,68 @@ output_variable() {
     fi
 }
 
+fetch_version_info() {
+    # Assuming that the versioning scheme used in your repository uses Git tags
+    # Fetch the latest version tag
+    git fetch --tags
+    latest_version_tag=$(git describe --tags $(git rev-list --tags --max-count=1))
+
+    if [[ -z "$latest_version_tag" ]]; then
+        echo "Error: Could not fetch the latest version tag"
+        exit 1
+    fi
+}
+
+check_branch_version_info() {
+    # Get the version of the current branch
+    current_branch_version=$(git describe --abbrev=0 --tags)
+
+    # Verify that the branch version is less than or equal to the fetched version
+    if [[ "$current_branch_version" > "$latest_version_tag" ]]; then
+        echo "Error: Current branch version is greater than the latest version tag"
+        exit 1
+    fi
+}
+
 # Extract version information from the 'develop' branch
 extract_develop_version() {
     current_version_major=$(grep -P "(set)(.)*(CPACK_PACKAGE_VERSION_MAJOR)" "${source_dir}/CMakeLists.txt" | grep -oP "([0-9]+)")
     current_version_minor=$(grep -P "(set)(.)*(CPACK_PACKAGE_VERSION_MINOR)" "${source_dir}/CMakeLists.txt" | grep -oP "([0-9]+)")
     current_version_pre_release=$(grep -P "(set)(.)*(CPACK_PACKAGE_VERSION_PRE_RELEASE)" "${source_dir}/CMakeLists.txt" | grep -oP "([0-9]+)")
+
+    # Verify that the minor version is 0
+    if [[ "$current_version_minor" != "0" ]]; then
+        echo "error: this is not the develop branch or the version-minor number is not properly set."
+        exit 1
+    fi
+
+    # Verify that the pre-release version is 99
+    if [[ "$current_version_pre_release" != "99" ]]; then
+        echo "error: this is not the develop branch or the pre-release version is not properly set."
+        exit 1
+    fi
 }
 
 # Process 'develop' branch
 process_develop_branch() {
+    extract_develop_version
+
+    # Verify that the branch version major is less than or equal to the latest version tag major
+    if [[ "$latest_version_tag" =~ ^v([0-9]+)\. ]]; then
+        tag_version_major="${BASH_REMATCH[1]}"
+        if [[ "$tag_version_major" -ge "$current_version_major" ]]; then
+            echo "error: this is not the develop branch or your higher tag version is not equivalent to the current major version."
+            exit 1
+        fi
+    else
+        echo "error: invalid version tag format"
+        exit 1
+    fi
+
     # List of all develop-build (DB) tags in reverse version order.
     sorted_release_tags=$(git tag | sort -V -r | grep -E "^(V(${current_version_major})\.(${current_version_minor})(DB[0-9]+))$" || true)
 }
+
 
 # Process release branch
 process_release_branch() {
