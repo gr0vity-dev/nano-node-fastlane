@@ -6,7 +6,7 @@ on:
     inputs:
       repo:
         description: "repo"
-        default: "nanocurrency/nano-node"
+        default: "gr0vity-dev/nano-node-fastlane"
         required: true
       ci_tag:
         description: "tag to build"
