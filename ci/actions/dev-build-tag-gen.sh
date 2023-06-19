@@ -197,13 +197,13 @@ fi
 
 # Prepares the build number to be used.
 latest_build_number=$(echo "$last_tag" | grep -oP "(DB[0-9]+)" | grep -oP "[0-9]+")
-build_number=$(( latest_build_number + 1 ))
+version_pre_release=$(( latest_build_number + 1 ))
 if [[ $previous_release_gen == false ]]; then
-    build_tag="V${current_version_major}.${current_version_minor}DB${build_number}"
+    build_tag="V${current_version_major}.${current_version_minor}DB${version_pre_release}"
 else
-    build_tag="V${previous_release_major}.${previous_release_minor}DB${build_number}"
+    build_tag="V${previous_release_major}.${previous_release_minor}DB${version_pre_release}"
 fi
-output_variable build_number
+output_variable version_pre_release
 output_variable build_tag
 
 set +o nounset
