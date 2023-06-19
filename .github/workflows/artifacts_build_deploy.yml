@@ -31,10 +31,9 @@ jobs:
       - name: Set the tag and version
         id: tag_set
         run: |
-          cd $GITHUB_WORKSPACE/ci/actions && ls -lrt
           if [[ "${{ github.event.inputs.ci_tag }}" == "AUTO" ]]; then
-            output_var_file="variable_list.txt"
-            $GITHUB_WORKSPACE/ci/actions/generate-new-build-tag.sh -o "${output_var_file}"
+            output_var_file="variable_list.txt"            
+            ci/actions/dev-build-tag-gen.sh -o "${output_var_file}" 
             echo "CI_TAG=$(grep 'build_tag' ${output_var_file} | cut -d= -f2)" >> $GITHUB_ENV
             echo "CI_VERSION_PRE_RELEASE=$(grep 'version_pre_release' ${output_var_file} | cut -d= -f2)" >> $GITHUB_ENV
           else
