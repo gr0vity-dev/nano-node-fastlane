@@ -7,7 +7,7 @@ namespace nano::log
 {
 enum class tag : uint8_t
 {
-	_all = 0, // reserved
+	all = 0, // reserved
 
 	generic,
 	node,
@@ -17,17 +17,28 @@ enum class tag : uint8_t
 	rpc_callbacks,
 	prunning,
 	wallet,
+	bulk_pull_client,
+	bulk_pull_server,
+	bulk_pull_account_client,
+	bulk_pull_account_server,
+	bulk_push_client,
+	bulk_push_server,
 };
 
 enum class detail
 {
-	_all = 0, // reserved
+	all = 0, // reserved
 
 	// blockprocessor
 	block_processed,
 
 	// network
-	message_received
+	message_received,
+
+	// bulk pull/push
+	pulled_block,
+	sending_block,
+	sending_pending,
 };
 }
 
