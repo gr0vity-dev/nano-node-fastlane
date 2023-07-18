@@ -325,8 +325,7 @@ void nano::bulk_pull_account_client::receive_pending ()
 		}
 		else
 		{
-			node->nlogger.error (nano::log::tag::bulk_pull_account_client, "Invalid size: Expected {}, got: {}", size_l % size_a);
-
+			node->nlogger.error (nano::log::tag::bulk_pull_account_client, "Invalid size: Expected {}, got: {}", size_l, size_a);
 			this_l->attempt->requeue_pending (this_l->account);
 		}
 	});
