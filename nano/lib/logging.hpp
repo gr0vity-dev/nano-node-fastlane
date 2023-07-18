@@ -3,6 +3,8 @@
 #include <nano/lib/logging_enums.hpp>
 #include <nano/lib/object_stream.hpp>
 
+#include <boost/filesystem.hpp>
+
 #include <initializer_list>
 #include <memory>
 #include <shared_mutex>
@@ -99,5 +101,5 @@ private:
 	std::shared_ptr<spdlog::logger> spd_logger;
 };
 
-void initialize_logging ();
+void initialize_logging (boost::filesystem::path const & data_path);
 }
