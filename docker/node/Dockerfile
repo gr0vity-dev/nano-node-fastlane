@@ -12,6 +12,14 @@ ARG CI_VERSION_PRE_RELEASE=OFF
 COPY ./ci/prepare/linux /tmp/prepare
 RUN /tmp/prepare/prepare.sh
 
+RUN apt install libspdlog-dev -y
+RUN git clone https://github.com/gabime/spdlog.git && \
+    cd spdlog && git checkout v1.12.0 && mkdir build && cd build && \
+    cmake .. && make -j && make install
+RUN apt-get update && apt-cache search spdlog fmt
+
+ENV SPDLOG_LEVEL=trace
+
 COPY ./ /tmp/src
 WORKDIR /tmp/src
 
@@ -38,6 +46,7 @@ RUN ldconfig
 WORKDIR /root
 USER root
 
+ENV SPDLOG_LEVEL=trace
 ENV PATH="${PATH}:/usr/bin"
 ENTRYPOINT ["/usr/bin/entry.sh"]
 CMD ["nano_node", "daemon", "-l"]
