@@ -23,6 +23,7 @@ enum class tag : uint8_t
 	bulk_pull_account_server,
 	bulk_push_client,
 	bulk_push_server,
+	active_transactions,
 };
 
 enum class detail
@@ -31,6 +32,13 @@ enum class detail
 
 	// blockprocessor
 	block_processed,
+
+	//node
+	process_confirmed,
+
+	//active_transactions
+	active_started,
+	active_stopped,
 
 	// network
 	message_received,

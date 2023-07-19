@@ -274,17 +274,17 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	// Keep track of election count by election type
 	debug_assert (count_by_behavior[election->behavior ()] > 0);
 	count_by_behavior[election->behavior ()]--;
-
 	auto blocks_l = election->blocks ();
+	std::vector<std::string> hashes_array;
 	for (auto const & [hash, block] : blocks_l)
 	{
+		hashes_array.push_back (hash.to_string ());
 		auto erased (blocks.erase (hash));
 		(void)erased;
 		debug_assert (erased == 1);
 		node.inactive_vote_cache.erase (hash);
 	}
 	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
-
 	lock_a.unlock ();
 	vacancy_update ();
 	for (auto const & [hash, block] : blocks_l)
@@ -294,7 +294,6 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 		{
 			node.observers.active_stopped.notify (hash);
 		}
-
 		if (!election->confirmed ())
 		{
 			// Clear from publish filter
@@ -302,6 +301,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 		}
 	}
 
+	node.nlogger.trace (nano::log::tag::active_transactions, nano::log::detail::active_stopped, nlogger::field ("root", election->qualified_root.to_string ()), nlogger::field ("hashes", hashes_array), nlogger::field ("behaviour", election->behavior ()), nlogger::field ("confirmed", election->confirmed ()));
 	if (node.config.logging.election_result_logging ())
 	{
 		node.logger.try_log (boost::str (boost::format ("Election erased for root %1%, confirmed: %2$b") % election->qualified_root.to_string () % election->confirmed ()));
@@ -420,6 +420,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				{
 					cache->fill (result.election);
 				}
+				node.nlogger.trace (nano::log::tag::active_transactions, nano::log::detail::active_started, nlogger::field ("root", root.to_string ()), nlogger::field ("hash", hash.to_string ()), nlogger::field ("behaviour", election_behavior_a));
 				node.stats.inc (nano::stat::type::active_started, nano::to_stat_detail (election_behavior_a));
 				node.observers.active_started.notify (hash);
 				vacancy_update ();
