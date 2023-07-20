@@ -232,7 +232,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 
 	lock_a.unlock ();
 
-	nano::confirmation_solicitor solicitor (node.network, node.config);
+	nano::confirmation_solicitor solicitor (node.network, node.config, node.nlogger);
 	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<std::size_t>::max ()));
 
 	std::size_t unconfirmed_count_l (0);

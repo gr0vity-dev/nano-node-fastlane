@@ -4,12 +4,13 @@
 
 using namespace std::chrono_literals;
 
-nano::confirmation_solicitor::confirmation_solicitor (nano::network & network_a, nano::node_config const & config_a) :
+nano::confirmation_solicitor::confirmation_solicitor (nano::network & network_a, nano::node_config const & config_a, nano::nlogger & nlogger_a) :
 	max_block_broadcasts (config_a.network_params.network.is_dev_network () ? 4 : 30),
 	max_election_requests (50),
 	max_election_broadcasts (std::max<std::size_t> (network_a.fanout () / 2, 1)),
 	network (network_a),
-	config (config_a)
+	config (config_a),
+	nlogger (nlogger_a)
 {
 }
 
@@ -43,6 +44,7 @@ bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 			{
 				i->channel->send (winner);
 				count += different ? 0 : 1;
+				nlogger.trace (nano::log::tag::confirmation_solicitor, nano::log::detail::broadcast, nlogger::field ("channel", i->channel->to_string ()), nlogger::field ("hash", hash.to_string ()));
 			}
 		}
 		// Random flood for block propagation

@@ -13,8 +13,9 @@ enum class tag : uint8_t
 	node,
 	daemon,
 	network,
-	election,
 	blockprocessor,
+	confirmation_solicitor,
+	election,
 	rpc_callbacks,
 	prunning,
 	wallet,
@@ -45,6 +46,8 @@ enum class detail
 	generate_vote_normal,
 	generate_vote_final,
 
+	//confirmation_solicitor
+	broadcast,
 
 	// network
 	message_received,

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/logging.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/repcrawler.hpp>
 
@@ -14,7 +15,7 @@ class node_config;
 class confirmation_solicitor final
 {
 public:
-	confirmation_solicitor (nano::network &, nano::node_config const &);
+	confirmation_solicitor (nano::network &, nano::node_config const &, nano::nlogger &);
 	/** Prepare object for batching election confirmation requests*/
 	void prepare (std::vector<nano::representative> const &);
 	/** Broadcast the winner of an election if the broadcast limit has not been reached. Returns false if the broadcast was performed */
@@ -33,6 +34,7 @@ public:
 private:
 	nano::network & network;
 	nano::node_config const & config;
+	nano::nlogger & nlogger;
 
 	unsigned rebroadcasted{ 0 };
 	std::vector<nano::representative> representatives_requests;
