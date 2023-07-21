@@ -342,6 +342,7 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 		{
 			auto hash = status.winner->hash ();
 			lock_a.unlock ();
+			node.nlogger.trace (nano::log::tag::election, nano::log::detail::generate_vote_final, nlogger::field ("root", root.to_string ()), nlogger::field ("hash", hash.to_string ()));
 			node.final_generator.add (root, hash);
 			lock_a.lock ();
 		}
