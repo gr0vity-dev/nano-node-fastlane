@@ -100,13 +100,15 @@ void nano::confirmation_solicitor::flush ()
 			if (roots_hashes_l.size () == nano::network::confirm_req_hashes_max)
 			{
 				nano::confirm_req req{ config.network_params.network, roots_hashes_l };
+				nlogger.trace (nano::log::tag::confirmation_solicitor, nano::log::detail::flush, nlogger::field ("channel", channel->to_string ()), nlogger::field ("confirm_req", req));
 				channel->send (req);
 				roots_hashes_l.clear ();
 			}
 		}
 		if (!roots_hashes_l.empty ())
-		{
+		{			
 			nano::confirm_req req{ config.network_params.network, roots_hashes_l };
+			nlogger.trace (nano::log::tag::confirmation_solicitor, nano::log::detail::flush, nlogger::field ("channel", channel->to_string ()), nlogger::field ("confirm_req", req));
 			channel->send (req);
 		}
 	}

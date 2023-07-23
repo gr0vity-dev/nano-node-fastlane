@@ -48,6 +48,7 @@ enum class detail
 
 	//confirmation_solicitor
 	broadcast,
+	flush,
 
 	// network
 	message_received,
