@@ -15,6 +15,7 @@ enum class tag : uint8_t
 	network,
 	blockprocessor,
 	confirmation_solicitor,
+	channel,
 	election,
 	rpc_callbacks,
 	prunning,
@@ -41,6 +42,11 @@ enum class detail
 	//active_transactions
 	active_started,
 	active_stopped,
+
+	//channel
+	message_sent,
+	message_drop,
+
 
 	//election
 	generate_vote_normal,
