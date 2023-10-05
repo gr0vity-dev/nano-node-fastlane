@@ -68,7 +68,7 @@ bool nano::scheduler::hinted::run_one (nano::uint128_t const & minimum_tally)
 {
 	if (auto top = inactive_vote_cache.pop (minimum_tally); top)
 	{
-		const auto hash = top->hash; // Hash of block we want to hint
+		const auto hash = top->hash (); // Hash of block we want to hint
 
 		// Check if block exists
 		auto block = node.block (hash);
@@ -165,16 +165,16 @@ void nano::scheduler::hinted::run_iterative ()
 			return;
 		}
 
-		if (entry.final_tally >= minimum_final_tally)
+		if (entry.final_tally ()>= minimum_final_tally)
 		{
 			stats.inc (nano::stat::type::hinting, nano::stat::detail::activate_final);
-			activate (transaction, entry.hash, /* activate regardless of dependents */ false);
+			activate (transaction, entry.hash (), /* activate regardless of dependents */ false);
 			return;
 		}
-		if (entry.tally >= minimum_tally)
+		if (entry.tally ()>= minimum_tally)
 		{
 			stats.inc (nano::stat::type::hinting, nano::stat::detail::activate_normal);
-			activate (transaction, entry.hash, /* ensure previous confirmed */ true);
+			activate (transaction, entry.hash (), /* ensure previous confirmed */ true);
 			return;
 		}
 	});

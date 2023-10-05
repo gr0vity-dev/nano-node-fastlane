@@ -6,6 +6,7 @@
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
@@ -25,17 +26,6 @@ class active_transactions;
 class election;
 class vote;
 
-/**
- *	A container holding votes that do not match any active or recently finished elections.
- *	It keeps track of votes in two internal structures: cache and queue
- *
- *	Cache: Stores votes associated with a particular block hash with a bounded maximum number of votes per hash.
- *			When cache size exceeds `max_size` oldest entries are evicted first.
- *
- *	Queue: Keeps track of block hashes ordered by total cached vote tally.
- *			When inserting a new vote into cache, the queue is atomically updated.
- *			When queue size exceeds `max_size` oldest entries are evicted first.
- */
 class vote_cache final
 {
 public:
@@ -47,7 +37,7 @@ public:
 
 public:
 	/**
-	 * Class that stores votes associated with a single block hash
+	 * Stores votes associated with a single block hash
 	 */
 	class entry final
 	{
@@ -56,19 +46,12 @@ public:
 		{
 			nano::account representative;
 			uint64_t timestamp;
-			nano::uint128_t weight;
 		};
 
 	public:
 		constexpr static int max_voters = 80;
 
 		explicit entry (nano::block_hash const & hash);
-
-		nano::block_hash hash;
-		std::vector<voter_entry> voters; // <rep, timestamp> pair
-
-		nano::uint128_t tally{ 0 };
-		nano::uint128_t final_tally{ 0 };
 
 		/**
 		 * Adds a vote into a list, checks for duplicates and updates timestamp if new one is greater
@@ -78,20 +61,20 @@ public:
 		/**
 		 * Inserts votes stored in this entry into an election
 		 */
-		std::size_t fill (std::shared_ptr<nano::election> election) const;
-		/*
-		 * Size of this entry
-		 */
+		std::size_t fill (std::shared_ptr<nano::election> const & election) const;
+
 		std::size_t size () const;
-
-	public:
-		bool cooldown (std::chrono::milliseconds cooldown_time) const;
-
-	private:
-		void recalculate_tally ();
+		nano::block_hash hash () const;
+		nano::uint128_t tally () const;
+		nano::uint128_t final_tally () const;
+		std::vector<voter_entry> voters () const;
 
 	private:
-		mutable std::chrono::steady_clock::time_point last_cooldown{};
+		nano::block_hash const hash_m;
+		std::vector<voter_entry> voters_m;
+
+		nano::uint128_t tally_m{ 0 };
+		nano::uint128_t final_tally_m{ 0 };
 	};
 
 private:
@@ -125,11 +108,6 @@ public:
 	 */
 	std::optional<entry> peek (nano::uint128_t const & min_tally = 0) const;
 	/**
-	 * Returns an entry with the highest tally.
-	 * @param min_tally minimum *final* tally threshold, entries below with their voting weight below this will be ignored
-	 */
-	std::optional<entry> peek_final (nano::uint128_t const & min_final_tally = 0) const;
-	/**
 	 * Returns an entry with the highest tally and removes it from container.
 	 * @param min_tally minimum tally threshold, entries below with their voting weight below this will be ignored
 	 */
@@ -148,6 +126,21 @@ public:
 
 public:
 	void iterate (nano::uint128_t const & min_tally, nano::uint128_t const & min_final_tally, std::function<void (entry const &)> const & action) const;
+
+
+public:
+	struct top_entry
+	{
+		nano::block_hash hash;
+		nano::uint128_t tally;
+		nano::uint128_t final_tally;
+	};
+
+	/**
+	 * Returns blocks with highest observed tally, greater than `min_tally`
+	 */
+	std::vector<top_entry> top (nano::uint128_t const & min_tally) const;
+	std::vector<top_entry> top_final (nano::uint128_t const & min_final_tally) const;
 
 public: // Container info
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
@@ -177,11 +170,11 @@ private:
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<entry, nano::block_hash, &entry::hash>>,
+			mi::const_mem_fun<entry, nano::block_hash, &entry::hash>>,
 		mi::ordered_non_unique<mi::tag<tag_tally>,
-			mi::member<entry, nano::uint128_t, &entry::tally>, std::greater<>>, // DESC
+			mi::const_mem_fun<entry, nano::uint128_t, &entry::tally>, std::greater<>>, // DESC
 		mi::ordered_non_unique<mi::tag<tag_final_tally>,
-			mi::member<entry, nano::uint128_t, &entry::final_tally>, std::greater<>> // DESC
+			mi::const_mem_fun<entry, nano::uint128_t, &entry::final_tally>, std::greater<>> // DESC
 	>>;
 	// clang-format on
 	ordered_cache cache;

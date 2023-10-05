@@ -284,7 +284,7 @@ public:
 	static uint8_t constexpr duration_max = { 0x0fu };
 
 	/* Check if timestamp represents a final vote */
-	static bool timestamp_is_final (uint64_t timestamp);
+	static bool is_final_timestamp (uint64_t timestamp);
 
 private:
 	// Vote timestamp
