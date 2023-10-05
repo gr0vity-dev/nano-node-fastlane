@@ -97,29 +97,23 @@ bool nano::scheduler::hinted::run_one (nano::uint128_t const & minimum_tally)
 	return false;
 }
 
-bool nano::scheduler::hinted::activate (const nano::transaction & transaction, const nano::block_hash & hash, bool check_dependents)
+
+void nano::scheduler::hinted::activate (const nano::transaction & transaction, const nano::block_hash & hash)
 {
 	// Check if block exists
-	if (auto block = node.store.block.get (transaction, hash); block != nullptr)
+	if (auto block = node.store.block.get (transaction, hash); block)
 	{
 		// Ensure block is not already confirmed
 		if (node.block_confirmed_or_being_confirmed (transaction, hash))
 		{
 			stats.inc (nano::stat::type::hinting, nano::stat::detail::already_confirmed);
-			return false;
-		}
-		if (check_dependents && !node.ledger.dependents_confirmed (transaction, *block))
-		{
-			stats.inc (nano::stat::type::hinting, nano::stat::detail::dependent_unconfirmed);
-			activate_dependents (transaction, *block);
-			return false;
+			return;
 		}
 
 		// Try to insert it into AEC as hinted election
-		// We check for AEC vacancy inside our predicate
+		// We check for AEC vacancy inside the predicate
 		auto result = node.active.insert (block, nano::election_behavior::hinted);
 		stats.inc (nano::stat::type::hinting, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
-		return true;
 	}
 	else
 	{
@@ -127,22 +121,102 @@ bool nano::scheduler::hinted::activate (const nano::transaction & transaction, c
 		stats.inc (nano::stat::type::hinting, nano::stat::detail::missing_block);
 		node.bootstrap_block (hash);
 	}
-
-	return false;
 }
 
-void nano::scheduler::hinted::activate_dependents (const nano::transaction & transaction, const nano::block & block)
+// bool nano::scheduler::hinted::activate (const nano::transaction & transaction, const nano::block_hash & hash, bool check_dependents)
+// {
+// 	// Check if block exists
+// 	if (auto block = node.store.block.get (transaction, hash); block != nullptr)
+// 	{
+// 		// Ensure block is not already confirmed
+// 		if (node.block_confirmed_or_being_confirmed (transaction, hash))
+// 		{
+// 			stats.inc (nano::stat::type::hinting, nano::stat::detail::already_confirmed);
+// 			return false;
+// 		}
+// 		if (check_dependents && !node.ledger.dependents_confirmed (transaction, *block))
+// 		{
+// 			stats.inc (nano::stat::type::hinting, nano::stat::detail::dependent_unconfirmed);
+// 			activate_dependents (transaction, *block);
+// 			return false;
+// 		}
+
+// 		// Try to insert it into AEC as hinted election
+// 		// We check for AEC vacancy inside our predicate
+// 		auto result = node.active.insert (block, nano::election_behavior::hinted);
+// 		stats.inc (nano::stat::type::hinting, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
+// 		return true;
+// 	}
+// 	else
+// 	{
+// 		// Missing block in ledger to start an election
+// 		stats.inc (nano::stat::type::hinting, nano::stat::detail::missing_block);
+// 		node.bootstrap_block (hash);
+// 	}
+
+// 	return false;
+// }
+
+
+
+// void nano::scheduler::hinted::activate_dependents (const nano::transaction & transaction, const nano::block & block)
+// {
+// 	auto dependents = node.ledger.dependent_blocks (transaction, block);
+// 	for (auto const & hash : dependents)
+// 	{
+// 		if (!hash.is_zero ())
+// 		{
+// 			bool activated = activate (transaction, hash, /* check dependents */ true);
+// 			if (activated)
+// 			{
+// 				stats.inc (nano::stat::type::hinting, nano::stat::detail::dependent_activated);
+// 			}
+// 		}
+// 	}
+// }
+
+void nano::scheduler::hinted::activate_with_dependents (const nano::transaction & transaction, const nano::block_hash & hash)
 {
-	auto dependents = node.ledger.dependent_blocks (transaction, block);
-	for (auto const & hash : dependents)
+	std::stack<nano::block_hash> stack;
+	stack.push (hash);
+
+	while (!stack.empty ())
 	{
-		if (!hash.is_zero ())
+		const nano::block_hash current_hash = stack.top ();
+		stack.pop ();
+
+		// Check if block exists
+		if (auto block = node.store.block.get (transaction, current_hash); block)
 		{
-			bool activated = activate (transaction, hash, /* check dependents */ true);
-			if (activated)
+			// Ensure block is not already confirmed
+			if (node.block_confirmed_or_being_confirmed (transaction, current_hash))
 			{
-				stats.inc (nano::stat::type::hinting, nano::stat::detail::dependent_activated);
+				stats.inc (nano::stat::type::hinting, nano::stat::detail::already_confirmed);
+				continue; // Move on to the next item in the stack
 			}
+
+			if (!node.ledger.dependents_confirmed (transaction, *block))
+			{
+				stats.inc (nano::stat::type::hinting, nano::stat::detail::dependent_unconfirmed);
+				auto dependents = node.ledger.dependent_blocks (transaction, *block);
+				for (const auto & dependent_hash : dependents)
+				{
+					if (!dependent_hash.is_zero ())
+					{
+						stack.push (dependent_hash); // Add dependent block to the stack
+					}
+				}
+				continue; // Move on to the next item in the stack
+			}
+
+			// Try to insert it into AEC as hinted election
+			auto result = node.active.insert (block, nano::election_behavior::hinted);
+			stats.inc (nano::stat::type::hinting, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
+		}
+		else
+		{
+			stats.inc (nano::stat::type::hinting, nano::stat::detail::missing_block);
+			node.bootstrap_block (current_hash);
 		}
 	}
 }
@@ -154,30 +228,41 @@ void nano::scheduler::hinted::run_iterative ()
 
 	auto transaction = node.store.tx_begin_read ();
 
-	node.inactive_vote_cache.iterate (minimum_tally, minimum_final_tally, [this, &transaction, minimum_tally, minimum_final_tally] (auto & entry) {
-		//		if (entry.cooldown (std::chrono::seconds{ 5 }))
-		//		{
-		//			return;
-		//		}
-
+	// Blocks with a vote tally higher than quorum
+	// Can be activated and confirmed immediately
+	for (auto const & entry : inactive_vote_cache.top_final (minimum_final_tally))
+	{
 		if (!predicate (0))
 		{
-			return;
+			break;
 		}
 
-		if (entry.final_tally ()>= minimum_final_tally)
+		if (cooldown (entry.hash))
 		{
-			stats.inc (nano::stat::type::hinting, nano::stat::detail::activate_final);
-			activate (transaction, entry.hash (), /* activate regardless of dependents */ false);
-			return;
+			continue;
 		}
-		if (entry.tally ()>= minimum_tally)
+
+		stats.inc (nano::stat::type::hinting, nano::stat::detail::activate_final);
+		activate (transaction, entry.hash);
+	}
+
+	// Block with highest observed tally, might not be final
+	// Ensure all dependent blocks are already confirmed before activating
+	for (auto const & entry : inactive_vote_cache.top (minimum_tally))
+	{
+		if (!predicate (0))
 		{
-			stats.inc (nano::stat::type::hinting, nano::stat::detail::activate_normal);
-			activate (transaction, entry.hash (), /* ensure previous confirmed */ true);
-			return;
+			break;
 		}
-	});
+
+		if (cooldown (entry.hash))
+		{
+			continue;
+		}
+
+		stats.inc (nano::stat::type::hinting, nano::stat::detail::activate_normal);
+		activate_with_dependents (transaction, entry.hash);
+	}
 }
 
 void nano::scheduler::hinted::run ()
@@ -213,6 +298,35 @@ void nano::scheduler::hinted::run ()
 			lock.lock ();
 		}
 	}
+}
+
+bool nano::scheduler::hinted::cooldown (const nano::block_hash & hash)
+{
+	auto const now = std::chrono::steady_clock::now ();
+	std::chrono::milliseconds check_interval{ 5000 };
+
+	// Check if the hash is still in the cooldown period using the hashed index
+	auto const & hashed_index = cooldowns_m.get<tag_hash> ();
+	if (auto it = hashed_index.find (hash); it != hashed_index.end ())
+	{
+		if (it->timeout > now)
+		{
+			return true; // Needs cooldown
+		}
+		cooldowns_m.erase (it); // Entry is outdated, so remove it
+	}
+
+	// Insert the new entry
+	cooldowns_m.insert ({ hash, now + check_interval });
+
+	// Trim old entries
+	auto & seq_index = cooldowns_m.get<tag_timeout> ();
+	while (!seq_index.empty () && seq_index.begin ()->timeout <= now)
+	{
+		seq_index.erase (seq_index.begin ());
+	}
+
+	return false; // No need to cooldown
 }
 
 nano::uint128_t nano::scheduler::hinted::tally_threshold () const
