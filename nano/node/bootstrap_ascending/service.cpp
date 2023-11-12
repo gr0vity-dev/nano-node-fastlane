@@ -28,7 +28,6 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 	scoring{ config.bootstrap_ascending, config.network_params.network },
 	database_limiter{ config.bootstrap_ascending.database_requests_limit, 1.0 }
 {
-	// TODO: This is called from a very congested blockprocessor thread. Offload this work to a dedicated processing thread
 	block_processor.batch_processed.add ([this] (auto const & batch) {
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
@@ -37,7 +36,12 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 			for (auto const & [result, block, context] : batch)
 			{
 				debug_assert (block != nullptr);
-				inspect (transaction, result, *block);
+
+				// Do not try to unnecessarily bootstrap live traffic chains
+				if (context.source == nano::block_processor::block_source::bootstrap)
+				{
+					inspect (transaction, result, *block);
+				}
 			}
 		}
 
@@ -386,7 +390,7 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 
 			for (auto & block : response.blocks)
 			{
-				block_processor.add (block);
+				block_processor.add (block, nano::block_processor::block_source::bootstrap);
 			}
 			nano::lock_guard<nano::mutex> lock{ mutex };
 			throttle.add (true);
