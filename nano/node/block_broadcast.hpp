@@ -4,6 +4,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/processing_queue.hpp>
 #include <nano/node/blockprocessor.hpp>
+#include <nano/node/node_observers.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -40,7 +41,7 @@ class block_broadcast
 	using queue_t = nano::processing_queue<entry>;
 
 public:
-	block_broadcast (nano::block_processor &, nano::network &, nano::stats &, bool enabled = false);
+	block_broadcast (nano::node_observers &, nano::block_processor &, nano::network &, nano::stats &, bool enabled = false);
 	~block_broadcast ();
 
 	void start ();
@@ -50,6 +51,7 @@ public:
 	void track_local (nano::block_hash const &);
 
 private: // Dependencies
+	nano::node_observers & observers;
 	nano::block_processor & block_processor;
 	nano::network & network;
 	nano::stats & stats;

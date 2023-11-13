@@ -4,7 +4,8 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/network.hpp>
 
-nano::block_broadcast::block_broadcast (nano::block_processor & block_processor_a, nano::network & network_a, nano::stats & stats_a, bool enabled_a) :
+nano::block_broadcast::block_broadcast (nano::node_observers & observers_a, nano::block_processor & block_processor_a, nano::network & network_a, nano::stats & stats_a, bool enabled_a) :
+	observers{ observers_a },
 	block_processor{ block_processor_a },
 	network{ network_a },
 	stats{ stats_a },
@@ -15,6 +16,10 @@ nano::block_broadcast::block_broadcast (nano::block_processor & block_processor_
 	{
 		return;
 	}
+
+	observers.active_started.add ([this] (auto const & block) {
+		queue.add (entry{ block, broadcast_strategy::normal });
+	});
 
 	block_processor.processed.add ([this] (auto const & result, auto const & block, auto const & context) {
 		switch (result.code)
@@ -66,7 +71,7 @@ void nano::block_broadcast::observe (std::shared_ptr<nano::block> const & block,
 		if (context.recent_arrival ())
 		{
 			// Block arrived from realtime traffic, do normal gossip.
-			queue.add (entry{ block, broadcast_strategy::normal });
+			// queue.add (entry{ block, broadcast_strategy::normal });
 		}
 		else
 		{

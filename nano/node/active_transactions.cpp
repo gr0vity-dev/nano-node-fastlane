@@ -475,7 +475,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 					cache->fill (result.election);
 				}
 				node.stats.inc (nano::stat::type::active_started, nano::to_stat_detail (election_behavior_a));
-				node.observers.active_started.notify (hash);
+				node.observers.active_started.notify (block_a);
 				vacancy_update ();
 			}
 		}

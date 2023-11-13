@@ -30,23 +30,23 @@ bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 	bool error (true);
 	if (rebroadcasted++ < max_block_broadcasts)
 	{
-		auto const & hash (election_a.status.winner->hash ());
-		nano::publish winner{ config.network_params.network, election_a.status.winner };
-		unsigned count = 0;
-		// Directed broadcasting to principal representatives
-		for (auto i (representatives_broadcasts.begin ()), n (representatives_broadcasts.end ()); i != n && count < max_election_broadcasts; ++i)
-		{
-			auto existing (election_a.last_votes.find (i->account));
-			bool const exists (existing != election_a.last_votes.end ());
-			bool const different (exists && existing->second.hash != hash);
-			if (!exists || different)
-			{
-				i->channel->send (winner);
-				count += different ? 0 : 1;
-			}
-		}
-		// Random flood for block propagation
-		network.flood_message (winner, nano::transport::buffer_drop_policy::limiter, 0.5f);
+		// auto const & hash (election_a.status.winner->hash ());
+		// nano::publish winner{ config.network_params.network, election_a.status.winner };
+		// unsigned count = 0;
+		// // Directed broadcasting to principal representatives
+		// for (auto i (representatives_broadcasts.begin ()), n (representatives_broadcasts.end ()); i != n && count < max_election_broadcasts; ++i)
+		// {
+		// 	auto existing (election_a.last_votes.find (i->account));
+		// 	bool const exists (existing != election_a.last_votes.end ());
+		// 	bool const different (exists && existing->second.hash != hash);
+		// 	if (!exists || different)
+		// 	{
+		// 		i->channel->send (winner);
+		// 		count += different ? 0 : 1;
+		// 	}
+		// }
+		// // Random flood for block propagation
+		// network.flood_message (winner, nano::transport::buffer_drop_policy::limiter, 0.5f);
 		error = false;
 	}
 	return error;

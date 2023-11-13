@@ -1016,11 +1016,11 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 		}
 	});
 
-	observers.active_started.add ([this] (nano::block_hash const & hash_a) {
+	observers.active_started.add ([this] (auto const & block) {
 		if (server->any_subscriber (nano::websocket::topic::started_election))
 		{
 			nano::websocket::message_builder builder;
-			server->broadcast (builder.started_election (hash_a));
+			server->broadcast (builder.started_election (block->hash ()));
 		}
 	});
 
