@@ -554,9 +554,11 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	return composite;
 }
 
-void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
+// void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
+void nano::node::process_active (std::shared_ptr<nano::block> const & incoming, const std::string & peer_id)
 {
-	block_processor.add (incoming);
+	// block_processor.add (incoming);
+	block_processor.add (incoming, nano::block_processor::block_source::live, peer_id);
 }
 
 [[nodiscard]] nano::process_return nano::node::process (store::write_transaction const & transaction, nano::block & block)

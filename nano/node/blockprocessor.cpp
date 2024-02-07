@@ -6,6 +6,7 @@
 
 #include <boost/format.hpp>
 
+#include <iostream> // Make sure this is included in your file
 /*
  * block_processor
  */
@@ -41,7 +42,7 @@ void nano::block_processor::stop ()
 std::size_t nano::block_processor::size ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	return blocks.size () + forced.size ();
+	return blocks_size + forced.size ();
 }
 
 bool nano::block_processor::full ()
@@ -54,7 +55,7 @@ bool nano::block_processor::half_full ()
 	return size () >= node.flags.block_processor_full_size / 2;
 }
 
-void nano::block_processor::add (std::shared_ptr<nano::block> const & block, block_source const source)
+void nano::block_processor::add (std::shared_ptr<nano::block> const & block, block_source const source, const std::string & peer_id)
 {
 	if (full ())
 	{
@@ -66,12 +67,12 @@ void nano::block_processor::add (std::shared_ptr<nano::block> const & block, blo
 		node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::insufficient_work);
 		return;
 	}
-	add_impl (block, context{ source });
+	add_impl (block, context{ source, peer_id });
 }
 
-std::optional<nano::process_return> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source)
+std::optional<nano::process_return> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source, const std::string & peer_id)
 {
-	context ctx{ source };
+	context ctx{ source, peer_id };
 	auto future = ctx.get_future ();
 	add_impl (block, std::move (ctx));
 	try
@@ -127,7 +128,7 @@ void nano::block_processor::force (std::shared_ptr<nano::block> const & block_a)
 {
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
-		forced.emplace_back (entry{ block_a, /* forced */ true, context{ block_source::forced } });
+		forced.emplace_back (entry{ block_a, /* forced */ true, context{ block_source::forced, "forced" } });
 	}
 	condition.notify_all ();
 }
@@ -179,7 +180,8 @@ bool nano::block_processor::should_log ()
 bool nano::block_processor::have_blocks_ready ()
 {
 	debug_assert (!mutex.try_lock ());
-	return !blocks.empty () || !forced.empty ();
+	auto result = blocks_size > 0 || !forced.empty ();
+	return result;
 }
 
 bool nano::block_processor::have_blocks ()
@@ -192,30 +194,48 @@ void nano::block_processor::add_impl (std::shared_ptr<nano::block> block, contex
 {
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		blocks.emplace_back (entry{ block, /* not forced */ false, std::move (ctx) });
+		// blocks.emplace_back(entry{block, /* not forced */ false, std::move(ctx)}); // Keep original line for now
+		blocks_by_peer[ctx.peer_id].emplace_back (entry{ block, /* not forced */ false, std::move (ctx) });
+		blocks_size++;
 	}
 	condition.notify_all ();
 }
 
-auto nano::block_processor::next () -> entry
+auto nano::block_processor::next (std::map<std::string, std::deque<entry>>::iterator & it) -> entry
 {
 	debug_assert (!mutex.try_lock ());
 
-	if (forced.empty ())
+	if (!forced.empty ())
 	{
-		release_assert (!blocks.empty ()); // Checked before calling this function
-
-		entry entry = std::move (blocks.front ());
-		release_assert (!entry.forced);
-		blocks.pop_front ();
+		entry entry = std::move (forced.front ());
+		forced.pop_front ();
 		return entry;
 	}
 	else
 	{
-		entry entry = std::move (forced.front ());
-		release_assert (entry.forced);
-		forced.pop_front ();
-		return entry;
+		if (it == blocks_by_peer.end ())
+		{
+			it = blocks_by_peer.begin (); // Reset to begin if we've reached the end
+		}
+
+		if (!it->second.empty ())
+		{
+			entry block_entry = std::move (it->second.front ());
+			it->second.pop_front ();
+			blocks_size--;
+
+			// erasing peer queue if it is empty after popping 
+			if (it->second.empty ())
+			{
+				it = blocks_by_peer.erase (it); // Erase empty queue and update iterator
+			}
+			else
+			{
+				++it; // Move to the next peer
+			}
+
+			return block_entry; // Return the processed entry
+		}
 	}
 }
 
@@ -236,19 +256,20 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	auto processor_batch_reached = [&number_of_blocks_processed, max = node.flags.block_processor_batch_size] { return number_of_blocks_processed >= max; };
 	auto store_batch_reached = [&number_of_blocks_processed, max = node.store.max_block_write_batch_num ()] { return number_of_blocks_processed >= max; };
 
+	auto it = blocks_by_peer.begin ();
 	while (have_blocks_ready () && (!deadline_reached () || !processor_batch_reached ()) && !store_batch_reached ())
 	{
 		// TODO: Cleaner periodical logging
-		if ((blocks.size () + forced.size () > 64) && should_log ())
+		if ((blocks_size + forced.size () > 64) && should_log ())
 		{
-			node.logger.debug (nano::log::type::blockprocessor, "{} blocks (+ {} forced) in processing queue", blocks.size (), forced.size ());
+			node.logger.debug (nano::log::type::blockprocessor, "{} blocks (+ {} forced) in processing queue", "X", forced.size ());
 		}
 
-		auto entry = next ();
+		auto entry = next (it);
 		auto const block = entry.block;
 		auto const hash = block->hash ();
 		bool const force = entry.forced;
-		auto context = std::move (entry.context);
+		auto context = std::move (entry.context_m);
 
 		lock_a.unlock ();
 
@@ -276,7 +297,6 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	{
 		node.logger.debug (nano::log::type::blockprocessor, "Processed {} blocks ({} forced) in {} {}", number_of_blocks_processed, number_of_forced_processed, timer_l.value ().count (), timer_l.unit ());
 	}
-
 	return processed;
 }
 
@@ -387,7 +407,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 
 	{
 		nano::lock_guard<nano::mutex> guard{ block_processor.mutex };
-		blocks_count = block_processor.blocks.size ();
+		blocks_count = block_processor.blocks_size;
 		forced_count = block_processor.forced.size ();
 	}
 

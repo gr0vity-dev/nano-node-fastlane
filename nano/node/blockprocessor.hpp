@@ -8,6 +8,8 @@
 #include <future>
 #include <memory>
 #include <optional>
+#include <queue>
+#include <set>
 #include <thread>
 
 namespace nano::store
@@ -43,8 +45,13 @@ public: // Context
 		using result_t = nano::process_return;
 
 		explicit context (block_source);
+		explicit context (block_source source, const std::string peer_id = "unknown") :
+			source (source), peer_id (peer_id), arrival (std::chrono::steady_clock::now ())
+		{
+		}
 
 		block_source const source;
+		std::string peer_id;
 		std::chrono::steady_clock::time_point const arrival;
 
 	private:
@@ -53,7 +60,6 @@ public: // Context
 	public:
 		std::future<result_t> get_future ();
 		void set_result (result_t const &);
-
 		bool recent_arrival () const;
 		static std::chrono::seconds constexpr recent_arrival_cutoff{ 60 * 5 };
 	};
@@ -62,7 +68,7 @@ public: // Context
 	{
 		std::shared_ptr<nano::block> block;
 		bool forced;
-		context context;
+		context context_m;
 	};
 
 public:
@@ -72,8 +78,8 @@ public:
 	std::size_t size ();
 	bool full ();
 	bool half_full ();
-	void add (std::shared_ptr<nano::block> const &, block_source = block_source::live);
-	std::optional<nano::process_return> add_blocking (std::shared_ptr<nano::block> const & block, block_source);
+	void add (std::shared_ptr<nano::block> const &, block_source = block_source::live, const std::string & peer_id = "default_peer");
+	std::optional<nano::process_return> add_blocking (std::shared_ptr<nano::block> const & block, block_source, const std::string & peer_id = "default_peer");
 	void force (std::shared_ptr<nano::block> const &);
 	bool should_log ();
 	bool have_blocks_ready ();
@@ -81,6 +87,7 @@ public:
 	void process_blocks ();
 
 	std::atomic<bool> flushing{ false };
+	std::atomic<int> blocks_size{ 0 };
 
 public: // Events
 	using processed_t = std::tuple<nano::process_return, std::shared_ptr<nano::block>, context>;
@@ -97,7 +104,7 @@ private:
 	nano::process_return process_one (store::write_transaction const &, std::shared_ptr<nano::block> block, context const &, bool forced = false);
 	void queue_unchecked (store::write_transaction const &, nano::hash_or_account const &);
 	processed_batch_t process_batch (nano::unique_lock<nano::mutex> &);
-	entry next ();
+	entry next (std::map<std::string, std::deque<entry>>::iterator & it);
 	void add_impl (std::shared_ptr<nano::block> block, context);
 
 private: // Dependencies
@@ -110,6 +117,7 @@ private:
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<entry> blocks;
 	std::deque<entry> forced;
+	std::map<std::string, std::deque<entry>> blocks_by_peer;
 	nano::condition_variable condition;
 	nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
 	std::thread processing_thread;
